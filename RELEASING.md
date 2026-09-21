@@ -26,6 +26,12 @@ A version that is already on the registry is **skipped**, not retried. That is w
 re-running a partially failed release safe: without it the second run would die on "cannot
 publish over previously published version" for whichever packages went out the first time.
 
+Re-running is therefore the correct response to a partial failure — fix whatever broke and
+re-run the same tag. The skip is decided two ways, because the cheap one is racy: `npm view`
+first, and then the registry's own `409 Cannot publish over…` treated as success. A version
+published moments earlier is not yet visible to `npm view`, so on a fast re-run only the
+second check fires.
+
 Failures are collected and reported at the end rather than aborting the loop, so one brand's
 registry-side problem cannot stop the others from shipping.
 

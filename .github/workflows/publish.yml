@@ -67,17 +67,30 @@ jobs:
             name=$(node -p "require('./${dir}package.json').name")
             version=$(node -p "require('./${dir}package.json').version")
 
+            # Cheap pre-check, but NOT the safety net: a version published moments ago is
+            # not yet visible here ("your package is being processed"), so this misses on a
+            # quick re-run and we try to publish again.
             if npm view "${name}@${version}" version >/dev/null 2>&1; then
               echo "${name}@${version} is already published — skipping"
               continue
             fi
 
             echo "::group::publish ${name}@${version}"
-            if (cd "${dir}" && npm publish --provenance --access public); then
+            if out=$(cd "${dir}" && npm publish --provenance --access public 2>&1); then
+              echo "${out}"
               echo "published ${name}@${version}"
             else
-              echo "::error::${name}@${version} failed to publish"
-              failed=1
+              echo "${out}"
+              # The registry refusing a version that is already there is the authoritative
+              # answer to "is this published?", and unlike `npm view` it cannot be stale.
+              # Treating it as success is what makes re-running a release idempotent —
+              # otherwise a re-run to fix one brand fails on the brands that already worked.
+              if printf '%s' "${out}" | grep -qiE 'cannot publish over|EPUBLISHCONFLICT|code E409'; then
+                echo "${name}@${version} was already published — nothing to do"
+              else
+                echo "::error::${name}@${version} failed to publish"
+                failed=1
+              fi
             fi
             echo "::endgroup::"
           done
