@@ -1,6 +1,6 @@
 {
   "name": "mcp-connect",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Source for the per-brand connect CLIs (uniweb-connect, dogado-connect)",
   "license": "MIT",
