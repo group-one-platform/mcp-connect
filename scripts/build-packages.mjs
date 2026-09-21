@@ -13,7 +13,7 @@
 import { cp, mkdir, readFile, rm, writeFile, access } from 'node:fs/promises';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BRANDS } from '../dist/constants.js';
+import { BRANDS, endpointsFor } from '../dist/constants.js';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const REPO = 'https://github.com/group-one-platform/mcp-connect';
@@ -48,8 +48,30 @@ for (const brand of BRANDS) {
   const dir = path.join(outRoot, name);
   await mkdir(dir, { recursive: true });
   await cp(path.join(root, 'dist'), path.join(dir, 'dist'), { recursive: true });
-  await cp(path.join(root, 'README.md'), path.join(dir, 'README.md'));
   await cp(path.join(root, 'LICENSE'), path.join(dir, 'LICENSE'));
+
+  // Each package gets its OWN README, rendered for its brand. Shipping the repository's
+  // README instead put uniweb-connect's name and instructions on dogado-connect's npm
+  // page — the one page a customer reads before running the thing, telling them to
+  // install a different company's package.
+  const { mcpUrl, toolsUrl } = endpointsFor(brand);
+  const substitutions = {
+    command: name,
+    brand: brand.label,
+    mcpUrl,
+    toolsUrl,
+    panelHost: brand.panelHost,
+  };
+  let readme = await readFile(path.join(root, 'templates', 'README.package.md'), 'utf8');
+  for (const [key, value] of Object.entries(substitutions)) {
+    readme = readme.replaceAll(`{{${key}}}`, value);
+  }
+  // A placeholder that survives rendering would ship as literal braces on the npm page.
+  const leftover = readme.match(/\{\{[a-zA-Z]+\}\}/g);
+  if (leftover) {
+    throw new Error(`unrendered placeholders in ${name} README: ${[...new Set(leftover)].join(', ')}`);
+  }
+  await writeFile(path.join(dir, 'README.md'), readme);
 
   const pkg = {
     name,
