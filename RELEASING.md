@@ -129,6 +129,7 @@ workflow.
 |---|---|
 | `404 Not Found - PUT` on a package that exists | npm too old for OIDC (needs >= 11.5.1), or a trusted-publisher field mismatch |
 | `Repository not found`, git error during publish | published a path that looks like `owner/repo` — publish from inside the directory |
-| green run, version not on the registry | propagation delay; wait a few minutes |
+| green run, version not on the registry | almost always propagation — it can take **ten minutes or more**, and packages in the same release can differ wildly. The job polls for 15 minutes before calling it a failure |
+| a version never appears at all | the publish was **staged**, not direct: that package's trusted publisher lacks **Allow `npm publish`**. `npm stage list` / `npm stage approve <id>` releases it. npm reports a staged publish identically to a direct one, so only the missing version gives it away |
 | `bin[...] was invalid and removed` | a `./` prefix on the bin path; npm normalises it and the warning overstates what happened |
 | `Granular access tokens that bypass 2FA may not perform this action` | a manual command picked up a token from `~/.npmrc` instead of your login session — note that when your cwd *is* `~`, npm reads `~/.npmrc` as the **project** config, which `npm_config_userconfig` does not override |

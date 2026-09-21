@@ -93,5 +93,39 @@ jobs:
               fi
             fi
             echo "::endgroup::"
+            published_specs="${published_specs:-} ${name}@${version}"
           done
+
+          # A publish that exits 0 is not the same as a version anyone can install. npm
+          # answers a STAGED publish exactly as it answers a direct one — "your package is
+          # being processed", "+ pkg@version", exit 0 — so a trusted publisher missing
+          # "Allow npm publish" would produce a completely green release that ships nothing.
+          # This confirms each version actually became installable.
+          #
+          # The 15 minute ceiling is measured, not guessed: on the 0.1.2 release one package
+          # appeared within seconds and the other took about ten minutes, which is why this
+          # polls instead of checking once, and why the window is far wider than feels
+          # necessary. Tightening it buys nothing and turns a slow registry into a red
+          # release.
+          echo "::group::verify each version is installable"
+          for spec in ${published_specs:-}; do
+            for attempt in $(seq 1 60); do
+              if npm view "${spec}" version >/dev/null 2>&1; then
+                echo "${spec} is live"
+                break
+              fi
+              if [ "${attempt}" -eq 60 ]; then
+                echo "::error::${spec} was accepted but has not appeared on the registry" \
+                     "after 15 minutes. Either propagation is unusually slow, or the publish" \
+                     "was STAGED — check 'npm stage list' and this package's trusted" \
+                     "publisher setting for 'Allow npm publish'. Re-running this release is" \
+                     "safe either way."
+                failed=1
+                break
+              fi
+              sleep 15
+            done
+          done
+          echo "::endgroup::"
+
           exit "${failed}"
