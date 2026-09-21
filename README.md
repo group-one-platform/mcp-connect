@@ -113,6 +113,14 @@ tests, and publishes each brand package with [npm provenance](https://docs.npmjs
 No npm token is stored in this repository — publishing authenticates through GitHub's OIDC
 identity, which is also what ties the published tarball to the commit it was built from.
 
+**Worth revisiting: [staged publishing](https://docs.npmjs.com/staged-publishing).** The
+trusted publisher currently allows direct `npm publish`, so a tag goes live unattended.
+Turning that off makes each release wait for a maintainer to approve it with 2FA. For a
+tool that writes config into other people's machines and is run via `npx` — which always
+fetches the latest — that approval is the thing standing between "someone gets push access"
+and "code on a customer's laptop". This releases a few times a year, so the friction is
+close to nothing. It was left off only so the first release had one unknown instead of two.
+
 ## License
 
 MIT
