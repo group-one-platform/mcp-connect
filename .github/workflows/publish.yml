@@ -35,12 +35,16 @@ jobs:
 
       # One package per brand, all from the same build. The loop means adding a brand is
       # a row in src/constants.ts plus an entrypoint — never a change to this workflow.
+      # Published from INSIDE each directory. `npm publish build/uniweb-connect` looks like
+      # npm's `owner/repo` GitHub shorthand and is resolved as a git remote, not a path —
+      # it fails with "Repository not found", which reads like a permissions problem and
+      # is not one.
       - name: publish each brand package
         run: |
           set -euo pipefail
           for dir in build/*/; do
             name=$(node -p "require('./${dir}package.json').name")
             echo "::group::publish ${name}"
-            npm publish "${dir}" --provenance --access public
+            (cd "${dir}" && npm publish --provenance --access public)
             echo "::endgroup::"
           done
