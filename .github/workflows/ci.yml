@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # The floor is what package.json declares; the ceiling is what most people
+        # actually have. A config-format helper that only works on one of them is not
+        # much of a helper.
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      # Proves the published artifacts can actually be assembled, so a broken release is
+      # caught on the PR rather than at the tag.
+      - run: npm run package

@@ -1,0 +1,46 @@
+name: publish
+
+# Publishing is deliberately tag-driven and CI-only. `id-token: write` is what lets npm
+# verify, via OIDC, that the tarball came from THIS repo and THIS workflow — that is the
+# provenance badge, and it is also why no npm token is stored anywhere here. Provenance
+# requires a public repository; npm refuses it from a private one.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      # The same gates as CI. A release that skipped them would be the one release nobody
+      # checked, and it is the one that lands on customers' machines.
+      - run: npm run build
+      - run: npm test
+
+      - run: npm run package
+
+      # One package per brand, all from the same build. The loop means adding a brand is
+      # a row in src/constants.ts plus an entrypoint — never a change to this workflow.
+      - name: publish each brand package
+        run: |
+          set -euo pipefail
+          for dir in build/*/; do
+            name=$(node -p "require('./${dir}package.json').name")
+            echo "::group::publish ${name}"
+            npm publish "${dir}" --provenance --access public
+            echo "::endgroup::"
+          done

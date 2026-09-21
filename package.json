@@ -1,0 +1,24 @@
+{
+  "name": "mcp-connect",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Source for the per-brand connect CLIs (uniweb-connect, dogado-connect)",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "package": "node scripts/build-packages.mjs"
+  },
+  "dependencies": {
+    "smol-toml": "^1.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
