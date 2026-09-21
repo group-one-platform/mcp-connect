@@ -93,7 +93,11 @@ for (const brand of BRANDS) {
     license: rootPkg.license,
     type: 'module',
     engines: rootPkg.engines,
-    bin: { [name]: `./${binEntry}` },
+    // No `./` prefix: npm normalises it away and warns that it "auto-corrected some errors
+    // in your package.json", naming the bin as invalid and removed. It is not removed — the
+    // published metadata carries it — but the warning is alarming enough in a release log to
+    // be worth not emitting.
+    bin: { [name]: binEntry },
     main: './dist/index.js',
     types: './dist/index.d.ts',
     exports: {
