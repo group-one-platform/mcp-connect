@@ -4,13 +4,13 @@
  * with us. Every test here is ultimately about that — plus the multi-brand property that
  * one account's registration never displaces another's.
  */
-import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, stat, chmod, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { parse } from 'smol-toml';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createClients, clientById } from '../src/clients/registry.js';
-import { claudeAddArgs } from '../src/clients/claudeCode.js';
+import { claudeAddArgs, claudeRemoveArgs, CLAUDE_SCOPES } from '../src/clients/claudeCode.js';
 import { brandById, endpointsFor } from '../src/constants.js';
 import type { Registration } from '../src/types.js';
 
@@ -255,5 +255,56 @@ describe('the Claude Desktop bridge', () => {
     const args = (table(cfg.mcpServers).uniweb as { args: string[] }).args;
     expect(args.some((a) => /^mcp-remote@\d+\.\d+\.\d+$/.test(a))).toBe(true);
     expect(args).not.toContain('mcp-remote');
+  });
+});
+
+describe('file permissions', () => {
+  it('creates a new config private to the user', async () => {
+    const c = client('cursor');
+    await c.register(uniweb);
+    const mode = (await stat(c.describeTarget())).mode & 0o777;
+    expect(mode).toBe(0o600);
+  });
+
+  it('keeps the permissions the user already chose', async () => {
+    const c = client('cursor');
+    const p = c.describeTarget();
+    await mkdir(path.dirname(p), { recursive: true });
+    await writeFile(p, '{}');
+    await chmod(p, 0o644);
+
+    await c.register(uniweb);
+    expect((await stat(p)).mode & 0o777).toBe(0o644);
+  });
+
+  it('leaves no temp file behind', async () => {
+    const c = client('cursor');
+    await c.register(uniweb);
+    const dir = path.dirname(c.describeTarget());
+    expect((await readdir(dir)).filter((f) => f.endsWith('.tmp'))).toEqual([]);
+  });
+});
+
+describe('claude code scopes', () => {
+  it('clears every scope on uninstall, not only the one it registers into', () => {
+    // `claude mcp get` finds a registration in ANY scope, so status reported "connected"
+    // for a locally-scoped server while uninstall removed only from the user scope and
+    // reported success. Being told you disconnected when you did not is worse than an
+    // error, because you stop looking.
+    expect([...CLAUDE_SCOPES].sort()).toEqual(['local', 'project', 'user']);
+    for (const scope of CLAUDE_SCOPES) {
+      expect(claudeRemoveArgs(uniweb, scope)).toEqual([
+        'mcp',
+        'remove',
+        '--scope',
+        scope,
+        'uniweb',
+      ]);
+    }
+  });
+
+  it('registers into exactly one scope', () => {
+    expect(claudeAddArgs(uniweb, 'user')).toContain('user');
+    expect(claudeAddArgs(uniweb, 'user').filter((a) => a === '--scope')).toHaveLength(1);
   });
 });

@@ -15,6 +15,16 @@ export function claudeAddArgs(reg: Registration, scope: ClaudeScope): string[] {
   return ['mcp', 'add', '--scope', scope, '--transport', 'http', reg.key, reg.url];
 }
 
+/** Every scope Claude Code can hold a registration in. `unregister` clears all of them,
+ *  because `isRegistered` finds a registration in any one of them. */
+export const CLAUDE_SCOPES = ['local', 'user', 'project'] as const satisfies readonly ClaudeScope[];
+
+/** Pure builder for the removal argument list, so the scope coverage is testable without a
+ *  `claude` binary present. */
+export function claudeRemoveArgs(reg: Registration, scope: ClaudeScope): string[] {
+  return ['mcp', 'remove', '--scope', scope, reg.key];
+}
+
 export function makeClaudeCode(scope: ClaudeScope = 'user'): McpClient {
   return {
     id: 'claude-code',
@@ -43,10 +53,21 @@ export function makeClaudeCode(scope: ClaudeScope = 'user'): McpClient {
     },
 
     async unregister(reg: Registration) {
-      try {
-        await execFileP('claude', ['mcp', 'remove', '--scope', scope, reg.key]);
-      } catch {
-        // not registered in this scope — nothing to do
+      // Remove from EVERY scope, not just the one we would register into.
+      //
+      // `claude mcp get` finds a registration in any scope, so `status` reported "connected"
+      // for a server registered locally while `uninstall` removed only from the user scope
+      // and reported success. The customer was told they had disconnected, and had not —
+      // which is worse than an error, because they stop looking.
+      //
+      // Removing more than we would add is the right asymmetry here: "disconnect this" means
+      // all of it, and a scope that holds nothing fails harmlessly.
+      for (const target of CLAUDE_SCOPES) {
+        try {
+          await execFileP('claude', claudeRemoveArgs(reg, target));
+        } catch {
+          // not registered in that scope — nothing to do
+        }
       }
     },
   };

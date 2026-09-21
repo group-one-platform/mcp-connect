@@ -44,9 +44,25 @@ export async function readTextIfPresent(p: string): Promise<string | undefined> 
  */
 export async function writeConfig(p: string, text: string): Promise<void> {
   await fs.mkdir(path.dirname(p), { recursive: true });
-  const isNew = !(await exists(p));
+
+  // Read the target's mode before writing anything: a file the user already has keeps the
+  // permissions they gave it, and only a file we create gets our own default.
+  let existingMode: number | undefined;
+  try {
+    existingMode = (await fs.stat(p)).mode & 0o777;
+  } catch {
+    existingMode = undefined;
+  }
+
+  // The temp file is created 0600 unconditionally, then widened to the target's mode just
+  // before the rename. Writing it at the final mode instead left a window — short, but real
+  // — where the contents sat at whatever the umask allowed. Nothing secret goes in these
+  // files today, and that is precisely the assumption worth not depending on.
   const tmp = `${p}.${process.pid}.tmp`;
-  await fs.writeFile(tmp, text, isNew ? { mode: 0o600 } : {});
+  await fs.writeFile(tmp, text, { mode: 0o600 });
+  if (existingMode !== undefined && existingMode !== 0o600) {
+    await fs.chmod(tmp, existingMode);
+  }
   await fs.rename(tmp, p);
 }
 
