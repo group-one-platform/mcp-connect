@@ -39,12 +39,34 @@ jobs:
       # npm's `owner/repo` GitHub shorthand and is resolved as a git remote, not a path —
       # it fails with "Repository not found", which reads like a permissions problem and
       # is not one.
+      # Each package is independent, so one brand must not be able to block the others:
+      # `build/*/` globs alphabetically, and a single misconfigured trusted publisher used
+      # to abort the job before later brands were even attempted. Failures are collected
+      # and reported at the end instead.
+      #
+      # Already-published versions are skipped rather than attempted, which is what makes
+      # re-running a partially failed release safe — without it the second run dies on
+      # "cannot publish over previously published version" for the ones that did succeed.
       - name: publish each brand package
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          failed=0
           for dir in build/*/; do
             name=$(node -p "require('./${dir}package.json').name")
-            echo "::group::publish ${name}"
-            (cd "${dir}" && npm publish --provenance --access public)
+            version=$(node -p "require('./${dir}package.json').version")
+
+            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+              echo "${name}@${version} is already published — skipping"
+              continue
+            fi
+
+            echo "::group::publish ${name}@${version}"
+            if (cd "${dir}" && npm publish --provenance --access public); then
+              echo "published ${name}@${version}"
+            else
+              echo "::error::${name}@${version} failed to publish"
+              failed=1
+            fi
             echo "::endgroup::"
           done
+          exit "${failed}"
