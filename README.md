@@ -14,12 +14,14 @@ Once connected you can ask your assistant to *list my websites*, *add an A recor
 app.example.com*, *what's on my next invoice*, *restart web-01*, or *is example.no
 available?*
 
-One package is published per brand, all built from this repository:
+A package is published per brand, all built from this repository:
 
 | brand | command |
 |---|---|
 | Uniweb | `npx uniweb-connect install` |
-| Dogado | `npx dogado-connect install` |
+
+Other brands are reachable from any of these with `--brand <id>`; they get a command of
+their own once they launch.
 
 ## Commands
 

@@ -26,6 +26,14 @@ for (const brand of BRANDS) {
   const name = `${brand.id}-connect`;
   const binEntry = `dist/bin/${brand.id}.js`;
 
+  // Connectable is not the same as published — see Brand.published. Skipping here is what
+  // keeps a release from trying to first-publish a package over OIDC, which cannot work
+  // and would fail the job after earlier packages had already gone out.
+  if (!brand.published) {
+    console.log(`${name.padEnd(18)} -- skipped (not published; reachable via --brand ${brand.id})`);
+    continue;
+  }
+
   // A brand added to the registry without its own entrypoint would otherwise publish a
   // package whose `bin` points at nothing — installable, and broken on first run.
   try {

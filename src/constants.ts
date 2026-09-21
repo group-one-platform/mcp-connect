@@ -26,6 +26,15 @@ export interface Brand {
    *  server. Shown for orientation only: the client discovers this itself from the
    *  endpoint's protected-resource metadata, and we never write it into a config. */
   panelHost: string;
+  /** Whether this brand ships its own npm package (`<id>-connect`).
+   *
+   *  Being connectable and being published are different things: every brand here can be
+   *  reached with `--brand <id>` from any of the CLIs, but a brand only gets a package of
+   *  its own once someone decides to put that command in front of its customers. The
+   *  release workflow publishes exactly the brands marked here — which matters, because
+   *  trusted publishing cannot perform a package's FIRST publish, so a package nobody has
+   *  bootstrapped by hand would fail the release and strand the ones already pushed. */
+  published: boolean;
 }
 
 export const BRANDS: readonly Brand[] = [
@@ -34,12 +43,17 @@ export const BRANDS: readonly Brand[] = [
     label: 'Uniweb',
     mcpHost: 'uniweb-mcp.cio.g1i.one',
     panelHost: 'home.uniweb.no',
+    published: true,
   },
   {
+    // Reachable with `--brand dogado`, and its endpoint answers — but no dogado-connect
+    // package until the brand is actually launched to customers. Flip this and publish
+    // the first version by hand; the workflow takes over from the next tag.
     id: 'dogado',
     label: 'Dogado',
     mcpHost: 'dogado-mcp.cio.g1i.one',
     panelHost: 'onehome.dogado.de',
+    published: false,
   },
 ];
 
