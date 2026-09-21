@@ -8,7 +8,7 @@ import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { parse } from 'smol-toml';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createClients, clientById } from '../src/clients/registry.js';
 import { claudeAddArgs } from '../src/clients/claudeCode.js';
 import { brandById, endpointsFor } from '../src/constants.js';
@@ -76,7 +76,7 @@ describe('each client gets the URL field it actually reads', () => {
     'devin-cli': { url: uniweb.url, transport: 'http' },
     junie: { url: uniweb.url },
     vscode: { type: 'http', url: uniweb.url },
-    'claude-desktop': { command: 'npx', args: ['-y', 'mcp-remote', uniweb.url] },
+    'claude-desktop': { command: 'npx', args: ['-y', 'mcp-remote@0.14.3', uniweb.url] },
   };
 
   for (const [id, pick] of cases) {
@@ -216,5 +216,44 @@ describe('claude code', () => {
 
   it('honours a non-default scope', () => {
     expect(claudeAddArgs(uniweb, 'local')).toContain('local');
+  });
+});
+
+describe('configs this tool must not quietly damage', () => {
+  it('declines a JSONC config with accurate advice instead of calling it broken', async () => {
+    // VS Code genuinely accepts comments here. Telling someone to "fix or remove" a valid
+    // file would have them damage something that works, to satisfy us.
+    const c = client('vscode');
+    const p = c.describeTarget();
+    await mkdir(path.dirname(p), { recursive: true });
+    const original = '{\n  // pinned, see SEC-118\n  "servers": {}\n}';
+    await writeFile(p, original);
+
+    await expect(c.register(uniweb)).rejects.toThrow(/contains comments/);
+    await expect(c.register(uniweb)).rejects.toThrow(/by hand/);
+    expect(await readFile(p, 'utf8')).toBe(original);
+  });
+
+  it('warns before dropping comments from a Codex config', async () => {
+    const c = client('codex');
+    const p = c.describeTarget();
+    await mkdir(path.dirname(p), { recursive: true });
+    await writeFile(p, '# do not remove, ticket OPS-4412\nmodel = "o3"\n');
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await c.register(uniweb);
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/drops them/));
+    warn.mockRestore();
+  });
+});
+
+describe('the Claude Desktop bridge', () => {
+  it('pins mcp-remote rather than running whatever is newest on every launch', async () => {
+    const c = client('claude-desktop');
+    await c.register(uniweb);
+    const cfg = await readJson(c.describeTarget());
+    const args = (table(cfg.mcpServers).uniweb as { args: string[] }).args;
+    expect(args.some((a) => /^mcp-remote@\d+\.\d+\.\d+$/.test(a))).toBe(true);
+    expect(args).not.toContain('mcp-remote');
   });
 });

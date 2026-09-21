@@ -5,7 +5,7 @@
  * in the control panel — without shelling out to a CLI.
  */
 export { BRANDS, brandById, endpointsFor, type Brand } from './constants.js';
-export { verifyBrand, type VerifyResult } from './verify.js';
+export { verifyEndpoint, type VerifyResult } from './verify.js';
 export { createClients, clientById, type ClientSetOptions } from './clients/registry.js';
 export { claudeAddArgs, type ClaudeScope } from './clients/claudeCode.js';
 export type { McpClient, ClientStatus, Registration } from './types.js';

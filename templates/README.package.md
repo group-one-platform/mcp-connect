@@ -82,10 +82,19 @@ configs, but only the panel ends the grant itself.
 
 ## Before it installs anything
 
-`install` first fetches the endpoint's protected-resource metadata and checks that it names
-an authorization server. A dead address written into six tools is six confusing failures
-later, in six different places — so it fails once, here, and writes nothing. `--no-verify`
-skips the check.
+`install` fetches the endpoint's protected-resource metadata first and checks three things,
+writing nothing at all unless they hold:
+
+- the address is reachable and is a live MCP endpoint — a dead one written into six tools is
+  six confusing failures later, in six different places
+- it is `https://`, so the sign-in that follows is not carried in clear
+- it sends you to sign in at **{{panelHost}}** and nowhere else. The metadata is served by
+  the endpoint itself, so an endpoint that is wrong or compromised can name any sign-in host
+  it likes; this is the one thing it cannot talk us out of
+
+Whatever address is actually being installed is the one checked — including when `--url`
+overrides it, which the command also announces before doing anything. `--no-verify` skips
+all of it.
 
 ## Source
 

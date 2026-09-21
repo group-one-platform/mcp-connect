@@ -17,6 +17,9 @@ import { jsonClient } from './jsonClient.js';
 import { makeClaudeCode, type ClaudeScope } from './claudeCode.js';
 import { makeCodex } from './codex.js';
 
+/** The mcp-remote build the Claude Desktop bridge runs. Bump deliberately — see below. */
+const MCP_REMOTE_VERSION = '0.14.3';
+
 /** Per-OS location of Claude Desktop's config file. */
 export function claudeDesktopConfigPath(home: string): string {
   if (process.platform === 'win32') {
@@ -113,14 +116,27 @@ export function createClients(opts: ClientSetOptions = {}): McpClient[] {
     buildEntry: (url) => ({ type: 'http', url }),
   });
 
-  /** Claude Desktop — stdio-only config, so bridge to the remote endpoint. */
+  /**
+   * Claude Desktop — stdio-only config, so bridge to the remote endpoint.
+   *
+   * The version is PINNED, and that is not fussiness. This entry runs on the customer's
+   * machine every time Claude Desktop starts, and `npx -y mcp-remote` unpinned means each
+   * of those launches fetches whatever the latest published version happens to be. We would
+   * be writing a standing instruction to execute someone else's newest code, forever, into
+   * a config file the customer will never look at again — on their behalf, in their name.
+   * Pinning does not remove the dependency, but it makes what runs a decision we made once
+   * and can be held to, rather than one taken continuously by a third party.
+   */
   const claudeDesktop = jsonClient({
     id: 'claude-desktop',
     name: 'Claude Desktop',
     configPath: claudeDesktopConfigPath(home),
     detectPaths: [path.dirname(claudeDesktopConfigPath(home))],
     rootKey: 'mcpServers',
-    buildEntry: (url) => ({ command: 'npx', args: ['-y', 'mcp-remote', url] }),
+    buildEntry: (url) => ({
+      command: 'npx',
+      args: ['-y', `mcp-remote@${MCP_REMOTE_VERSION}`, url],
+    }),
   });
 
   return [

@@ -46,10 +46,22 @@ export function makeCodex(home: string): McpClient {
     },
 
     async register(reg: Registration) {
+      const raw = await readTextIfPresent(configPath);
       const cfg = await readConfig();
       const servers = cfg['mcp_servers'] ?? {};
       servers[reg.key] = { url: reg.url };
       cfg['mcp_servers'] = servers;
+      // Editing TOML here is parse → mutate → re-serialise, and comments do not survive
+      // that round trip. Entries do, which is what "preserves what it does not own" was
+      // ever able to mean — but somebody's `# do not remove, ticket OPS-4412` does not,
+      // and losing it silently is worse than the entry we came to add is worth. Say so.
+      if (raw !== undefined && /^\s*#/m.test(raw)) {
+        console.warn(
+          `! ${configPath} contains comments, and rewriting TOML drops them.\n` +
+            `  Your settings and other servers are preserved; the comment lines are not.\n` +
+            `  Back the file up first if any of them matter.`,
+        );
+      }
       await writeConfig(configPath, `${stringify(cfg)}\n`);
     },
 

@@ -33,6 +33,21 @@ export function jsonClient(spec: JsonClientSpec): McpClient {
     } catch (err) {
       // Refuse rather than overwrite. A config we cannot parse is a config whose other
       // servers we would destroy by rewriting it from scratch.
+      //
+      // Comments get their own message, because several of these tools — VS Code most of
+      // all — read JSONC and accept them. Telling someone their perfectly valid config is
+      // "not valid JSON, fix or remove it" is advice that would have them damage a working
+      // file to satisfy us. The honest answer is that WE cannot rewrite it without
+      // discarding the comments, so we decline and they add one line by hand.
+      if (/^\s*(\/\/|\/\*)/m.test(raw)) {
+        throw new Error(
+          `${spec.name}'s config at ${spec.configPath} contains comments. That is valid for ` +
+            `${spec.name}, but this tool can only rewrite strict JSON and would silently drop ` +
+            `them — so it is leaving the file alone. Add this to "${spec.rootKey}" by hand:\n` +
+            `  ${JSON.stringify(spec.buildEntry('<the MCP url>'))}`,
+          { cause: err },
+        );
+      }
       throw new Error(
         `${spec.name}'s config at ${spec.configPath} is not valid JSON — fix or remove it, then try again`,
         { cause: err },

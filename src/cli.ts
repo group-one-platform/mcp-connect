@@ -19,7 +19,7 @@ import { clientStatuses } from './index.js';
 import { createClients, clientById } from './clients/registry.js';
 import type { ClaudeScope } from './clients/claudeCode.js';
 import type { McpClient, Registration } from './types.js';
-import { verifyBrand } from './verify.js';
+import { verifyEndpoint } from './verify.js';
 
 const CLIENT_IDS = createClients().map((c) => c.id);
 const BRAND_IDS = BRANDS.map((b) => b.id).join(', ');
@@ -177,15 +177,24 @@ export async function run(opts: RunOptions = {}): Promise<void> {
       }
 
       if (verify) {
-        // Check the endpoint BEFORE touching anyone's config: a dead address written
-        // into six tools is six confusing failures later, in six different places.
-        const result = await verifyBrand(brand);
+        // Check the endpoint BEFORE touching anyone's config: a dead address written into
+        // six tools is six confusing failures later, in six different places.
+        //
+        // Verify `reg.url` — what is actually about to be written — and not the brand's
+        // default. Those differ whenever `--url` is passed, and checking the wrong one
+        // meant printing "endpoint is live" over a write of something else.
+        const overridden = url !== undefined;
+        if (overridden) {
+          console.log(
+            `! --url overrides ${brand.label}'s endpoint. Connecting to ${reg.url} instead of\n` +
+              `  ${endpointsFor(brand).mcpUrl}. Only do this if you know why.\n`,
+          );
+        }
+        const result = await verifyEndpoint(reg.url, overridden ? undefined : brand.panelHost);
         if (!result.ok) {
           fail(`${result.problem}\nNothing was changed. Use --no-verify to install anyway.`);
         }
-        console.log(
-          `✓ ${brand.label} endpoint is live — sign-in goes to ${result.authorizationServer}\n`,
-        );
+        console.log(`✓ ${reg.url} is live — sign-in goes to ${result.authorizationServer}\n`);
       }
 
       let failures = 0;
