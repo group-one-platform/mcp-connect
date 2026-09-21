@@ -16,10 +16,11 @@
  */
 import { brandById, BRANDS, endpointsFor, type Brand } from './constants.js';
 import { clientStatuses } from './index.js';
-import { createClients, clientById } from './clients/registry.js';
+import { createClients, clientById, type ClientSetOptions } from './clients/registry.js';
 import type { ClaudeScope } from './clients/claudeCode.js';
 import type { McpClient, Registration } from './types.js';
 import { verifyEndpoint } from './verify.js';
+import { resolveBridgeCommand } from './bridge.js';
 
 const CLIENT_IDS = createClients().map((c) => c.id);
 const BRAND_IDS = BRANDS.map((b) => b.id).join(', ');
@@ -124,10 +125,14 @@ function resolveTargets(
   ids: string[],
   statuses: Awaited<ReturnType<typeof clientStatuses>>,
   want: 'installed' | 'registered',
+  clientOpts: ClientSetOptions,
 ): McpClient[] {
   if (ids.length > 0) {
     return ids.map((id) => {
-      const client = clientById(id);
+      // Built with the SAME options as the status pass — a client constructed without the
+      // resolved bridge command would quietly write a different entry than the one we
+      // checked and reported.
+      const client = clientById(id, clientOpts);
       if (!client) fail(`unknown tool "${id}" — run \`status\` for the list`);
       return client;
     });
@@ -156,7 +161,13 @@ export async function run(opts: RunOptions = {}): Promise<void> {
   const { command, ids, brand: brandId, scope, url, verify } = parseArgs(argv);
   const brand = resolveBrand(brandId, opts.defaultBrandId);
   const reg: Registration = { key: brand.id, url: url ?? endpointsFor(brand).mcpUrl };
-  const statuses = await clientStatuses(reg, { claudeScope: scope });
+
+  // Resolved once, here, because it decides what gets WRITTEN into Claude Desktop's config
+  // — and because a customer whose bridge cannot start deserves to hear it now rather than
+  // from a stack trace in an app log they have no reason to open.
+  const bridge = await resolveBridgeCommand();
+  const clientOpts = { claudeScope: scope, bridgeCommand: bridge.command };
+  const statuses = await clientStatuses(reg, clientOpts);
 
   switch (command) {
     case 'status': {
@@ -169,7 +180,7 @@ export async function run(opts: RunOptions = {}): Promise<void> {
     }
 
     case 'install': {
-      const targets = resolveTargets(ids, statuses, 'installed');
+      const targets = resolveTargets(ids, statuses, 'installed', clientOpts);
       if (targets.length === 0) {
         fail(
           'no supported AI tools detected on this machine — name one explicitly to connect it anyway',
@@ -197,6 +208,14 @@ export async function run(opts: RunOptions = {}): Promise<void> {
         console.log(`✓ ${reg.url} is live — sign-in goes to ${result.authorizationServer}\n`);
       }
 
+      // Claude Desktop reaches the endpoint through a bridge process it spawns itself, so
+      // which Node starts that bridge is decided by the PATH a GUI app inherits — not the
+      // shell's. When we could not pin one, say so here: the alternative is the customer
+      // finding out from a ReferenceError in an app log they have no reason to open.
+      if (bridge.warning && targets.some((t) => t.id === 'claude-desktop')) {
+        console.log(`! Claude Desktop: ${bridge.warning}\n`);
+      }
+
       let failures = 0;
       for (const client of targets) {
         try {
@@ -214,13 +233,23 @@ export async function run(opts: RunOptions = {}): Promise<void> {
             `window opens to sign in at ${brand.panelHost} — there is no key to paste.\n` +
             `See every available tool at ${endpointsFor(brand).toolsUrl}`,
         );
+        // Naming the pinned interpreter is the difference between a legible failure and a
+        // mystery later: this path is version-specific, so upgrading or removing that Node
+        // breaks it. "command not found" plus this line is something a customer can act on.
+        if (bridge.command !== 'npx' && targets.some((t) => t.id === 'claude-desktop')) {
+          console.log(
+            `\nClaude Desktop will run its bridge with:\n  ${bridge.command}\n` +
+              `pinned so it cannot pick up a Node too old to start. If you later upgrade or\n` +
+              `remove that Node, re-run this command to repoint it.`,
+          );
+        }
       }
       if (failures > 0) process.exit(1);
       return;
     }
 
     case 'uninstall': {
-      const targets = resolveTargets(ids, statuses, 'registered');
+      const targets = resolveTargets(ids, statuses, 'registered', clientOpts);
       if (targets.length === 0) {
         console.log(
           `nothing to disconnect — ${brand.label} is not registered with any detected tool`,

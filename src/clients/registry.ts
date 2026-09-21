@@ -36,6 +36,10 @@ export interface ClientSetOptions {
   home?: string;
   /** which scope Claude Code registers in; `user` so it works across every project */
   claudeScope?: ClaudeScope;
+  /** the `npx` the Claude Desktop bridge should run — an absolute path pins which Node
+   *  starts it, instead of leaving that to the PATH a GUI app happens to inherit. See
+   *  bridge.ts; defaults to plain `npx` only when nothing better could be resolved. */
+  bridgeCommand?: string;
 }
 
 export function createClients(opts: ClientSetOptions = {}): McpClient[] {
@@ -134,7 +138,7 @@ export function createClients(opts: ClientSetOptions = {}): McpClient[] {
     detectPaths: [path.dirname(claudeDesktopConfigPath(home))],
     rootKey: 'mcpServers',
     buildEntry: (url) => ({
-      command: 'npx',
+      command: opts.bridgeCommand ?? 'npx',
       args: ['-y', `mcp-remote@${MCP_REMOTE_VERSION}`, url],
     }),
   });

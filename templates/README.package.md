@@ -56,8 +56,14 @@ cursor          not detected  ~/.cursor/mcp.json
 
 Each writes to that tool's own location and format — `claude mcp add` for Claude Code,
 TOML for Codex, `serverUrl` for Windsurf and Antigravity, `httpUrl` for Gemini CLI, and so
-on. Claude Desktop's config file accepts stdio servers only, so it is bridged through
-`npx mcp-remote`; that one needs Node available at runtime.
+on.
+
+**Claude Desktop** is the exception: its config accepts stdio servers only, so it reaches
+the endpoint through `mcp-remote`, which it spawns itself. Two things follow. That bridge
+needs Node 18+ at runtime — a GUI app inherits its own PATH, and an older Node first in it
+makes the bridge crash on startup with `ReferenceError: ReadableStream is not defined` — so
+the entry pins an absolute path to a Node known to be new enough rather than leaving the
+choice to PATH. If you later upgrade or remove that Node, re-run `install` to repoint it.
 
 Registration is read–modify–write: entries for other MCP servers in the same file are
 preserved, and a config that cannot be parsed is refused rather than overwritten.
