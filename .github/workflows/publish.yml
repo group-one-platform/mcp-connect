@@ -24,6 +24,18 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
+      # Trusted publishing needs npm >= 11.5.1, and Node 22 still bundles npm 10.x. Do not
+      # drop this step on the grounds that the runner "already has npm".
+      #
+      # The failure it prevents is genuinely misleading: npm 10 can still SIGN a provenance
+      # statement (supported since 9.5), so the log shows a Sigstore transparency-log entry
+      # and looks healthy — and then authenticates with nothing at all, which the registry
+      # answers with `404 Not Found - PUT`. That reads as a misconfigured trusted publisher,
+      # and sends you to re-check npm settings that were right all along.
+      - name: install an npm that can authenticate over OIDC
+        run: npm install -g npm@latest
+      - run: npm --version
+
       - run: npm ci
 
       # The same gates as CI. A release that skipped them would be the one release nobody
