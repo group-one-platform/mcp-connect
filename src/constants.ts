@@ -26,14 +26,18 @@ export interface Brand {
    *  server. Shown for orientation only: the client discovers this itself from the
    *  endpoint's protected-resource metadata, and we never write it into a config. */
   panelHost: string;
-  /** Whether this brand ships its own npm package (`<id>-connect`).
+  /** Whether this brand's npm package (`<id>-connect`) exists and should keep receiving
+   *  releases.
    *
-   *  Being connectable and being published are different things: every brand here can be
-   *  reached with `--brand <id>` from any of the CLIs, but a brand only gets a package of
-   *  its own once someone decides to put that command in front of its customers. The
-   *  release workflow publishes exactly the brands marked here — which matters, because
-   *  trusted publishing cannot perform a package's FIRST publish, so a package nobody has
-   *  bootstrapped by hand would fail the release and strand the ones already pushed. */
+   *  This is NOT the same question as whether we advertise the command — a brand can have
+   *  a package claimed and kept current long before anyone points its customers at it (the
+   *  README lists only what has launched). Once a name is published, leaving it out of the
+   *  release would not unpublish it; it would pin it at whatever version bootstrapped it,
+   *  which is the one outcome worse than either extreme.
+   *
+   *  A brand set to false here has no package yet. Bootstrapping one is a manual first
+   *  publish: trusted publishing cannot perform a package's FIRST publish, so the release
+   *  would fail on it — after the earlier packages had already gone out. */
   published: boolean;
 }
 
@@ -46,14 +50,15 @@ export const BRANDS: readonly Brand[] = [
     published: true,
   },
   {
-    // Reachable with `--brand dogado`, and its endpoint answers — but no dogado-connect
-    // package until the brand is actually launched to customers. Flip this and publish
-    // the first version by hand; the workflow takes over from the next tag.
+    // Published and kept current, but deliberately not advertised in the README: the brand
+    // has not launched. Claiming the name is the point — an unclaimed `dogado-connect`
+    // would be a ready-made way to write someone else's MCP endpoint into our customers'
+    // AI tools.
     id: 'dogado',
     label: 'Dogado',
     mcpHost: 'dogado-mcp.cio.g1i.one',
     panelHost: 'onehome.dogado.de',
-    published: false,
+    published: true,
   },
 ];
 
