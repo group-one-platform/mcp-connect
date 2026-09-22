@@ -44,9 +44,9 @@ describe('endpoint shaping', () => {
   it('appends /mcp to the brand host, matching what the assistant hands out', () => {
     const brand = brandById('uniweb');
     expect(brand).toBeDefined();
-    expect(endpointsFor(brand!).mcpUrl).toBe('https://uniweb-mcp.cio.g1i.one/mcp');
+    expect(endpointsFor(brand!).mcpUrl).toBe('https://mcp.uniweb.no/mcp');
     expect(endpointsFor(brand!).metadataUrl).toBe(
-      'https://uniweb-mcp.cio.g1i.one/.well-known/oauth-protected-resource',
+      'https://mcp.uniweb.no/.well-known/oauth-protected-resource',
     );
   });
 

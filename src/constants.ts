@@ -45,7 +45,10 @@ export const BRANDS: readonly Brand[] = [
   {
     id: 'uniweb',
     label: 'Uniweb',
-    mcpHost: 'uniweb-mcp.cio.g1i.one',
+    // Renamed from uniweb-mcp.cio.g1i.one on 2026-09-22. The old name still answers — it is
+    // in the configs of everyone who installed before the rename — but this is the one we
+    // hand out now, matching what the platform advertises (platform_config.tenants.mcp_host).
+    mcpHost: 'mcp.uniweb.no',
     panelHost: 'home.uniweb.no',
     published: true,
   },
